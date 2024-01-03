@@ -1,38 +1,51 @@
 import numpy as np
 import cv2
 
-img_path = "../train-images.idx3-ubyte"
-label_path = "../train-labels.idx1-ubyte"
+def load_file(file_path):
+    with open(file_path, "rb") as f:
+        return bytearray(f.read())
 
-with open(img_path, "rb") as f:
-    imgs_byte = f.read()
+def read_data_from_bytes(data_bytes, start, end):
+    return int.from_bytes(data_bytes[start:end], byteorder='big')
 
-with open(label_path, "rb") as f:
-    labels_byte = f.read()
+def load_images_and_labels(img_path, label_path):
+    imgs_byte = load_file(img_path)
+    labels_byte = load_file(label_path)
 
-data_num = int.from_bytes(imgs_byte[4:8])
-img_height = int.from_bytes(imgs_byte[8:12])
-img_width = int.from_bytes(imgs_byte[12:16])
-pixel_num = img_height * img_width
-imgs = []
-labels = []
+    data_num = read_data_from_bytes(imgs_byte, 4, 8)
+    img_height = read_data_from_bytes(imgs_byte, 8, 12)
+    img_width = read_data_from_bytes(imgs_byte, 12, 16)
 
-img_offset = 16
-label_offset = 8
-for i in range(data_num):
-    # load image
-    img = [[] for j in range(img_height)]
-    for j in range(img_height):
-        for k in range(img_width):
-            img[j].append(imgs_byte[img_offset])
-            img_offset += 1
-    imgs.append(img)
+    imgs = []
+    labels = []
 
-    # load label
-    labels.append(labels_byte[label_offset])
-    label_offset += 1
-print(min(labels), max(labels))
+    img_offset = 16
+    label_offset = 8
 
-# display image
-cv2.imwrite("{}.jpg".format(labels[10]), np.array(imgs[10]))
-# print("\n".join(["".join(map(str, [j//max(i) for j in i])) for i in imgs[0]]))
+    for _ in range(data_num):
+        # load image
+        img = np.array(imgs_byte[img_offset:img_offset + img_height * img_width], dtype=np.uint8)
+        img = img.reshape((img_height, img_width))
+        img_offset += img_height * img_width
+        imgs.append(img)
+
+        # load label
+        labels.append(labels_byte[label_offset])
+        label_offset += 1
+
+    return data_num, img_height, img_width, imgs, labels
+
+def main():
+    img_path = "../train-images.idx3-ubyte"
+    label_path = "../train-labels.idx1-ubyte"
+
+    data_num, img_height, img_width, imgs, labels = load_images_and_labels(img_path, label_path)
+
+    print(f"data_num: {data_num}, img_height: {img_height}, img_width: {img_width}")
+    print(f"Min label: {min(labels)}, Max label: {max(labels)}")
+
+    # display image
+    cv2.imwrite(f"{labels[data_num - 1]}.jpg", imgs[data_num - 1])
+
+if __name__ == "__main__":
+    main()
